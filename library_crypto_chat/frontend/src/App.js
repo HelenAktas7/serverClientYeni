@@ -3,7 +3,6 @@ import axios from "axios";
 import forge from "node-forge";
 import "./App.css";
 
-
 const API_BASE = "http://127.0.0.1:5051/api";
 
 function b64(bytes) {
@@ -24,6 +23,18 @@ function App() {
 
   const sendMessage = async () => {
     setResult("");
+
+    if (algorithm === "MANUAL_DES") {
+      const response = await axios.post(
+        `${API_BASE}/manual-des/encrypt`,
+        {
+          message: message,
+          key: "KEY123"
+        }
+      );
+      setResult(response.data.ciphertext);
+      return;
+    }
 
     const rsa = forge.pki.publicKeyFromPem(publicKey);
 
@@ -58,12 +69,13 @@ function App() {
   return (
     <div className="container">
       <div className="card">
-        <h2>Kütüphaneli Şifreli Haberleşme</h2>
+        <h2>Şifreli Haberleşme</h2>
 
         <label>Şifreleme Algoritması</label>
         <select value={algorithm} onChange={e => setAlgorithm(e.target.value)}>
           <option value="AES">AES-128</option>
           <option value="DES">DES</option>
+          <option value="MANUAL_DES">Manual DES (Kütüphanesiz)</option>
         </select>
 
         <label>Gönderilecek Mesaj</label>
@@ -78,14 +90,13 @@ function App() {
 
         {result && (
           <div className="result">
-            <strong>Sunucudan Çözülen Mesaj:</strong>
+            <strong>Sonuç:</strong>
             <span>{result}</span>
           </div>
         )}
       </div>
     </div>
   );
-
 }
 
 export default App;

@@ -5,12 +5,12 @@ from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 import base64
 
-app = Flask(__name__)
-CORS(app)
+from manual_des.des_manual import encrypt_api as manual_des_encrypt
 
-# =========================
-# RSA KEY PAIR (SERVER)
-# =========================
+app = Flask(__name__)
+
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
 RSA_KEY = RSA.generate(2048)
 RSA_PUBLIC_KEY = RSA_KEY.publickey()
 
@@ -26,19 +26,15 @@ def get_public_key():
         "public_key": RSA_PUBLIC_KEY.export_key().decode()
     })
 
-# =========================
-# AES / DES DECRYPT
-# =========================
 @app.post("/api/decrypt")
 def decrypt_message():
     data = request.json
     algorithm = data["algorithm"]
-    
+
     encrypted_key = b64d(data["encrypted_key"])
     iv = b64d(data["iv"])
     ciphertext = b64d(data["ciphertext"])
 
-    # RSA ile anahtari coz
     rsa_cipher = PKCS1_OAEP.new(RSA_KEY)
     secret_key = rsa_cipher.decrypt(encrypted_key)
 
@@ -46,10 +42,12 @@ def decrypt_message():
         cipher = AES.new(secret_key, AES.MODE_CBC, iv)
         plaintext = cipher.decrypt(ciphertext)
         plaintext = plaintext[:-plaintext[-1]]
+
     elif algorithm == "DES":
         cipher = DES.new(secret_key, DES.MODE_CBC, iv)
         plaintext = cipher.decrypt(ciphertext)
         plaintext = plaintext[:-plaintext[-1]]
+
     else:
         return jsonify({"error": "Unknown algorithm"}), 400
 
@@ -57,5 +55,20 @@ def decrypt_message():
         "plaintext": plaintext.decode()
     })
 
+@app.post("/api/manual-des/encrypt")
+def manual_des_encrypt_route():
+    data = request.json
+    message = data.get("message")
+    key = data.get("key")
+
+    if not message or not key:
+        return jsonify({"error": "Mesaj ve anahtar zorunludur"}), 400
+
+    ciphertext = manual_des_encrypt(message, key)
+
+    return jsonify({
+        "algorithm": "Manual DES",
+        "ciphertext": ciphertext
+    })
 if __name__ == "__main__":
-    app.run(port=5051, debug=True)
+    app.run(host="127.0.0.1", port=5051, debug=True)
